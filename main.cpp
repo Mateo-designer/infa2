@@ -108,29 +108,29 @@ int main(void) {
 	{
 		czy_pilka[i] = 1; //aktywowanie wybranej liczby piłek
 		ball[i].r = 5; //domyślnie r = 5
-		
+
 		ball[i].v = speed;
 
 		ball[i].x_pos = 300; //rand() % (500 - 100) + 100; //300; (koniec - start) + start
 		ball[i].y_pos = HEIGHT - tile[0].b - 2 * ball[i].r;
 
-		
+
 		ball[i].angle = rand() % (angle_max - angle_min) + angle_min; //początkowy kąt, pod którym leci dana piłka
 		ball[i].calculate_dx_dy(dr); //obliczenie przesunięcia w kierunku x i y na podstawie prędkości skierowanej pod kątem "angle" do paletki
 
-		
+
 
 		pilka[i].setFillColor(sf::Color(rand() % 206 + 50, rand() % 206 + 50, rand() % 206 + 50, 255)); //opcjonalnie losowy kolor piłki
 		pilka[i].setRadius(ball[i].r);
 		pilka[i].setPointCount(50);
-		
+
 	}
 
 	sf::Clock zegar_pilki;
 	sf::Clock zegar_paletki;
 	sf::Clock zegar_paletki_2;
 
-	
+
 	system("pause");
 
 	//ustawienie ograniczeń dla piłek, aby nie wychodziły poza obszar planszy
@@ -189,7 +189,7 @@ int main(void) {
 		//punktacja[i].setString(str1.str()); 
 		punktacja[i].setString(player[i].nick);
 	}
-	
+
 	punktacja[0].setPosition(Width + 20 + c_banda, 20);
 	punktacja[1].setPosition(Width + 20 + c_banda, 100);
 
@@ -218,7 +218,7 @@ int main(void) {
 	gameover.setPoint(7, sf::Vector2f(Width * 2 / 3, Height / 2 - tile[1].b));
 	gameover.setFillColor(sf::Color::Red);
 
-	
+
 
 	sf::Clock czas_gry;
 
@@ -230,7 +230,7 @@ int main(void) {
 
 		if (start_gry == 0)
 		{
-			
+
 			window.draw(uruchom_gre);
 			window.display();
 			while (start_gry == 0)
@@ -351,10 +351,7 @@ int main(void) {
 						{
 							if (ball[i].x_pos >= tile[1].x_pos - ball[i].r && ball[i].x_pos <= tile[1].x_pos + tile[0].a - ball[i].r)
 							{
-								//sound1.play(); //dźwięk odbicia piłki paletką
-								ball[i].y_dir *= -1;
-								player[1].points++;
-
+								
 								//pilka[i].setFillColor(sf::Color(rand() % 206 + 50, rand() % 206 + 50, rand() % 206 + 50, 255));
 
 								//zmiany koloru piłek po odibiciu
@@ -392,11 +389,11 @@ int main(void) {
 
 						if (ball[i].x_pos >= tile[0].x_pos - ball[i].r && ball[i].x_pos <= tile[0].x_pos + tile[0].a - ball[i].r)
 						{
-							
+
 							ball[i].y_dir *= -1;
 							player[0].points++;
 
-							
+
 
 							if (pilka[i].getFillColor() == sf::Color::White)
 								pilka[i].setFillColor(sf::Color::Red);
