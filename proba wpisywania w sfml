@@ -1,0 +1,752 @@
+#define _CRT_SECURE_NO_WARNINGS
+#define Width 600 // Szerokość planszy
+#define Height 600 // Wysokość planszy
+#define b_paletka 10 // Grubość paletki
+
+#include <iostream>
+#include <cstring>
+#include <ctime>
+#include <cmath>
+#include <cstdlib>
+#include <SFML/Graphics.hpp>
+#include <SFML/System.hpp>
+#include <SFML/Main.hpp>
+
+// Klasa odpowiadająca za planszę gry
+class Board {
+public:
+    sf::RectangleShape top_border;    // Górna banda
+    sf::RectangleShape left_border;   // Lewa banda
+    sf::RectangleShape right_border;  // Prawa banda
+    sf::RectangleShape bottom_border; // Dolna banda
+
+    Board(float c_banda); // Konstruktor
+    void draw(sf::RenderWindow& window); // Rysowanie planszy
+};
+
+// Konstruktor klasy Board - inicjalizacja brzegów planszy
+Board::Board(float c_banda) {
+    // Górna banda
+    top_border.setSize(sf::Vector2f(Width + c_banda, c_banda));
+    top_border.setFillColor(sf::Color::Blue);
+    top_border.setPosition(0, 0);
+
+    // Lewa banda
+    left_border.setSize(sf::Vector2f(c_banda, Height - c_banda));
+    left_border.setFillColor(sf::Color::Blue);
+    left_border.setPosition(0, c_banda);
+
+    // Prawa banda
+    right_border.setSize(sf::Vector2f(c_banda, Height - c_banda));
+    right_border.setFillColor(sf::Color::Blue);
+    right_border.setPosition(Width, c_banda);
+
+    // Dolna banda
+    bottom_border.setSize(sf::Vector2f(Width + c_banda, c_banda));
+    bottom_border.setFillColor(sf::Color::Blue);
+    bottom_border.setPosition(0, Height);
+}
+
+// Funkcja rysująca brzegów planszy
+void Board::draw(sf::RenderWindow& window) {
+    window.draw(right_border);
+    window.draw(left_border);
+    window.draw(bottom_border);
+    window.draw(top_border);
+}
+
+// Klasa odpowiadająca za menu gry
+class Menu {
+private:
+    int menu_choice_flag = 0; // Flaga wyboru menu
+    int choice = 100;         // Wybrane pole menu (kliknięcie)
+    int options_amount;       // Ilość opcji menu
+
+public:
+    sf::Font font;
+    sf::Text menu_text[10];       // Tekst opcji menu
+    sf::Sprite* menu_option;      // Tło opcji menu
+    sf::Texture normal, selected; // Tekstury opcji menu
+
+    Menu(int options_amount_zadana); // Konstruktor
+    ~Menu() {
+        delete[] menu_option;
+    };
+
+    void markActiveSelection(sf::RenderWindow& window); // Podświetlenie aktywnej opcji
+    int getOptionsAmount(); // Pobierz ilość opcji
+    int getChoice();        // Pobierz wybór użytkownika
+    void setChoice(int k);  // Ustaw wybór użytkownika
+    void draw(sf::RenderWindow& window); // Rysowanie menu
+};
+
+// Konstruktor klasy Menu - inicjalizacja opcji menu
+Menu::Menu(int options_amount_zadana) {
+    float x, y;
+    options_amount = options_amount_zadana;
+    menu_option = new sf::Sprite[options_amount];
+
+    // Wczytanie czcionki
+    if (!font.loadFromFile("resources/arial.ttf")) {
+        std::cout << "Blad wczytywania czcionki!" << std::endl;
+    }
+
+    // Wczytanie tekstur dla opcji menu
+    if (!normal.loadFromFile("resources/menu_unselected.png")) {
+        std::cout << "Blad wczytywania tekstury normal!" << std::endl;
+    }
+    if (!selected.loadFromFile("resources/menu_selected.png")) {
+        std::cout << "Blad wczytywania tekstury selected!" << std::endl;
+    }
+
+    // Inicjalizacja opcji menu
+    for (int i = 0; i < options_amount; i++) {
+        x = (Width - 500) / 2;
+        y = (Height - 100 * options_amount) / 2 + i * 100;
+
+        menu_option[i].setTexture(normal);
+        menu_option[i].setPosition(x, y);
+
+        menu_text[i].setFont(font);
+        menu_text[i].setFillColor(sf::Color::Red);
+        menu_text[i].setCharacterSize(60);
+        menu_text[i].setPosition(x + 20, y + 20);
+    }
+}
+
+// Implementacje funkcji klasy Menu
+void Menu::markActiveSelection(sf::RenderWindow& window) {
+    sf::Event menu_event;
+    sf::Vector2i mouse_position = sf::Mouse::getPosition(window);
+
+    // Podświetlanie opcji menu najechanych myszką
+    for (int i = 0; i < options_amount; i++) {
+        menu_option[i].setTexture(normal);
+        if (menu_option[i].getGlobalBounds().contains(static_cast<float>(mouse_position.x), static_cast<float>(mouse_position.y))) {
+            menu_option[i].setTexture(selected);
+        }
+    }
+
+    // Rysowanie podświetlonych opcji menu
+    window.clear();          // Czyszczenie ekranu
+    draw(window);            // Rysowanie menu
+    window.display();        // Wyświetlenie zmian
+
+    // Obsługa kliknięcia myszką
+    while (window.pollEvent(menu_event)) {
+        if (menu_event.type == sf::Event::Closed) {
+            window.close();
+        }
+        if (menu_event.type == sf::Event::MouseButtonPressed && menu_event.mouseButton.button == sf::Mouse::Left) {
+            for (int i = 0; i < options_amount; i++) {
+                if (menu_option[i].getGlobalBounds().contains(static_cast<float>(menu_event.mouseButton.x), static_cast<float>(menu_event.mouseButton.y))) {
+                    choice = i;  // Ustawienie wybranej opcji
+                    return;
+                }
+            }
+        }
+    }
+}
+
+// Funkcja zwracająca ilość opcji menu
+int Menu::getOptionsAmount() {
+    return options_amount;
+}
+
+// Funkcja zwracająca wybrany przez użytkownika wybór
+int Menu::getChoice() {
+    return choice;
+}
+
+// Funkcja ustawiająca wybór użytkownika
+void Menu::setChoice(int k) {
+    choice = k;
+}
+
+// Funkcja rysująca menu
+void Menu::draw(sf::RenderWindow& window) {
+    for (int i = 0; i < options_amount; i++) {
+        window.draw(menu_option[i]);
+        window.draw(menu_text[i]);
+    }
+}
+
+// Klasa odpowiadająca za gracza
+class Player {
+public:
+    std::string nick; // Nick gracza
+    int score = 0;    // Wynik gracza
+};
+// Klasa odpowiadająca za piłkę
+class Ball {
+public:
+    bool state;  // Aktywność piłki
+    float x_pos, y_pos, x_dir = 1, y_dir = -1, v, dx, dy, angle, dr;
+    int r = 5;   // Promień piłki
+
+    Ball(float speed = 300, float zmiana = 0.005);
+    void setPosition(float x_in, float y_in);
+    void calculateDxDy(); // Oblicz przesunięcie dx i dy
+    void resetSettings();
+    void changeAngle(float a, float dAlfa);
+    void move();
+};
+
+// Konstruktor klasy Ball - inicjalizacja piłki
+Ball::Ball(float speed, float zmiana) {
+    int angle_max = 150, angle_min = 30;
+
+    state = true; // Aktywacja piłki
+    r = 5; // Promień piłki
+
+    // Inicjalizacja prędkości i przesunięcia
+    v = static_cast<float>(rand() % ((int)speed - 25) + (int)speed + 50);
+    dr = v * zmiana;
+
+    // Pozycja początkowa piłki
+    x_pos = Width / 2;
+    y_pos = Height - b_paletka - 2 * r - r;
+
+    // Losowy kąt początkowy piłki
+    angle = static_cast<float>(rand() % (angle_max - angle_min) + angle_min);
+    y_dir = -1;
+    calculateDxDy();
+}
+
+// Ustawienie pozycji piłki
+void Ball::setPosition(float x_in, float y_in) {
+    x_pos = x_in;
+    y_pos = y_in;
+}
+
+// Obliczenie przesunięcia w osi x i y na podstawie kąta
+void Ball::calculateDxDy() {
+    dx = dr * cos(angle * 3.14159265f / 180.f);
+    dy = dr * sin(angle * 3.14159265f / 180.f);
+}
+
+// Resetowanie ustawień piłki (opcjonalne, można rozszerzyć)
+void Ball::resetSettings() {
+    // Implementacja resetowania, jeśli potrzebna
+}
+
+// Zmiana kąta lotu piłki po odbiciu
+void Ball::changeAngle(float a, float dAlfa) {
+    dAlfa = static_cast<float>(rand() % ((int)dAlfa - 1) + 2); // Zmiana kąta o +/- dAlfa
+    if (!x_dir) angle -= a * dAlfa;
+    else if (x_dir) angle -= a * dAlfa * x_dir;
+
+    if (angle > 180) angle -= dAlfa;
+    else if (angle < 0) angle += dAlfa;
+
+    calculateDxDy();
+}
+
+// Ruch piłki
+void Ball::move() {
+    if (state) {
+        x_pos += dx * x_dir;
+        y_pos += dy * y_dir;
+    }
+}
+
+// Klasa odpowiadająca za paletki
+class Tile {
+public:
+    int a = 200; // Długość paletki
+    int b = 10;  // Grubość paletki
+    float x_pos = Width / 2 - a / 2; // Pozycja początkowa paletki
+    float x_dir = 0; // Kierunek ruchu
+};
+void countdown(sf::RenderWindow& window, sf::Font& font) {
+    sf::Text countdownText("", font, 60);
+    countdownText.setFillColor(sf::Color::White);
+    countdownText.setPosition(300, 250);
+
+    for (int i = 3; i > 0; i--) {
+        countdownText.setString("Gra rozpocznie sie za: " + std::to_string(i));
+        window.clear();
+        window.draw(countdownText);
+        window.display();
+        sf::sleep(sf::seconds(1));
+    }
+}
+void pauseGame(sf::RenderWindow& window, sf::Font& font) {
+    sf::Text question("Czy chcesz opuscic gre?", font, 50);
+    question.setFillColor(sf::Color::White);
+    question.setPosition(200, 200);
+
+    sf::Text yes("TAK", font, 40);
+    yes.setFillColor(sf::Color::Green);
+    yes.setPosition(250, 300);
+
+    sf::Text no("NIE", font, 40);
+    no.setFillColor(sf::Color::Red);
+    no.setPosition(400, 300);
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (yes.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
+                    window.close();
+                }
+                else if (no.getGlobalBounds().contains(event.mouseButton.x, event.mouseButton.y)) {
+                    return;
+                }
+            }
+        }
+
+        window.clear();
+        window.draw(question);
+        window.draw(yes);
+        window.draw(no);
+        window.display();
+    }
+}
+// Funkcja umożliwiająca wprowadzanie nicku bezpośrednio w interfejsie graficznym
+void insertNick(sf::RenderWindow& window, sf::Font& font, std::string& nickname) {
+    sf::Text prompt("Podaj nick: ", font, 30);
+    prompt.setFillColor(sf::Color::White);
+    prompt.setPosition(100, 200);
+
+    sf::Text inputNick("", font, 30);
+    inputNick.setFillColor(sf::Color::Yellow);
+    inputNick.setPosition(100, 300);
+
+    sf::Event event;
+    nickname = "";
+
+    while (window.isOpen()) {
+        window.clear();
+        window.draw(prompt);
+        window.draw(inputNick);
+        window.display();
+
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+
+            if (event.type == sf::Event::TextEntered) {
+                if (event.text.unicode == '\b' && !nickname.empty()) {
+                    nickname.pop_back();
+                }
+                else if (event.text.unicode == '\r' && !nickname.empty()) {
+                    return;
+                }
+                else if (event.text.unicode < 128) {
+                    nickname += static_cast<char>(event.text.unicode);
+                }
+                inputNick.setString(nickname);
+            }
+        }
+    }
+}
+
+void chooseDifficulty(sf::RenderWindow& window, sf::Font& font, int& difficulty_level) {
+    // Tworzenie przycisków i tekstów
+    sf::RectangleShape button1(sf::Vector2f(200.f, 50.f));
+    button1.setPosition(300.f, 200.f);
+    button1.setFillColor(sf::Color::Green);
+
+    sf::Text text1("Poziom trudnosci:", font, 30);
+    text1.setPosition(300.f, 150.f);
+
+    sf::Text easy("1. Latwy", font, 30);
+    easy.setPosition(300.f, 250.f);
+
+    sf::Text medium("2. Sredni", font, 30);
+    medium.setPosition(300.f, 300.f);
+
+    sf::Text hard("3. Trudny", font, 30);
+    hard.setPosition(300.f, 350.f);
+
+    // Wybór poziomu trudności
+    bool difficultyChosen = false;
+    while (window.isOpen() && !difficultyChosen) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            }
+        }
+
+        window.clear();
+        window.draw(text1);
+        window.draw(easy);
+        window.draw(medium);
+        window.draw(hard);
+        window.draw(button1);
+        window.display();
+
+        if (event.type == sf::Event::MouseButtonPressed) {
+            if (button1.getGlobalBounds().contains(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y)) {
+                // Przyciski wyboru poziomu trudności
+                if (easy.getGlobalBounds().contains(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y)) {
+                    difficulty_level = 1;
+                    difficultyChosen = true;
+                }
+                else if (medium.getGlobalBounds().contains(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y)) {
+                    difficulty_level = 2;
+                    difficultyChosen = true;
+                }
+                else if (hard.getGlobalBounds().contains(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y)) {
+                    difficulty_level = 3;
+                    difficultyChosen = true;
+                }
+            }
+        }
+    }
+}
+
+void chooseBallsAmount(sf::RenderWindow& window, sf::Font& font, int& balls_amount_choice) {
+    // Okno wyboru liczby piłek
+    sf::Text text("Wybierz liczbe pilek <1-500>:", font, 30);
+    text.setPosition(100.f, 150.f);
+
+    sf::RectangleShape button2(sf::Vector2f(200.f, 50.f));
+    button2.setPosition(300.f, 400.f);
+    button2.setFillColor(sf::Color::Blue);
+
+    // Wybór liczby piłek
+    bool ballsChosen = false;
+    while (window.isOpen() && !ballsChosen) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            }
+        }
+
+        window.clear();
+        window.draw(text);
+        window.draw(button2);
+        window.display();
+
+        // Sprawdzanie kliknięcia w okno i przetwarzanie wyboru liczby piłek
+        if (event.type == sf::Event::MouseButtonPressed) {
+            if (button2.getGlobalBounds().contains(sf::Mouse::getPosition(window).x, sf::Mouse::getPosition(window).y)) {
+                std::cout << "Ilosc pilek <1-500>: ";
+                std::cin >> balls_amount_choice;
+                if (balls_amount_choice >= 1 && balls_amount_choice <= 500) {
+                    ballsChosen = true;
+                }
+                else {
+                    std::cout << "Podaj poprawna liczbe pilek." << std::endl;
+                }
+            }
+        }
+    }
+}
+
+
+void showHelp(sf::RenderWindow& window, sf::Font& font) {
+    sf::Text helpText("Sterowanie:\nGracz 1: A - lewo, D - prawo\nGracz 2: Strzałki\nESC - pauza\nF1 - pomoc", font, 30);
+    helpText.setFillColor(sf::Color::White);
+    helpText.setPosition(100, 100);
+
+    window.clear(sf::Color::Black);
+    window.draw(helpText);
+    window.display();
+
+    sf::sleep(sf::seconds(5));
+};
+
+
+// Główna funkcja gry
+int main(void) {
+    srand(static_cast<unsigned int>(time(NULL))); // Inicjalizacja generatora liczb losowych
+
+    enum GameState { MENU, SINGLEPLAYER, MULTIPLAYER, TRAINING, SETTINGS, HELP, EXIT };
+    GameState gameState = MENU;
+
+    const int
+        WINDOW_WIDTH = 1000,	//szerokość okna
+        WINDOW_HEIGHT = 800,	//wysokość okna
+        WIDTH = 600,		//szerokość pola gry
+        HEIGHT = 600;		//wysokość pola gry
+
+    int c_banda = 25,			//grubość bandy
+        balls_amount_choice,	//ilość piłek wybranych przez gracza
+        balls_amount_after,		//ilość piłek po danym obiegu pętli
+        balls_amount_choice_max = 500,	//maksymalna dostępna ilość piłek
+        difficulty_level,		//poziom trudności
+        players_amount,			//ilosc graczy
+        speed_min, speed_max, speed,		//predkosc pilki
+        angle_min = 30, angle_max = 150;	//zakres początkowego kąta lotu piłek (0-150)
+
+    unsigned int czas;
+    bool is_singleplayer_menu = 0;	//czy otwarto menu w trybie singleplayer
+    int singleplayer_type = 5;      //rodzaj trybu gry w singleplayer: 0 - jedna paletka, 1 - przeciwnik AI
+    bool help = false;			//czy włączono pomoc
+
+    float x_min = c_banda, x_max, y_min = c_banda, y_max; //ograniczenia dla ruchu piłki
+    float dAlfa = 16;			//zmiana kąta przy odbiciu piłki
+
+
+
+    // Inicjalizacja okna gry
+    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Gra - Pong");
+    window.setFramerateLimit(60);
+
+    // Inicjalizacja czcionki
+    sf::Font font;
+    if (!font.loadFromFile("resources/arial.ttf")) {
+        std::cout << "Błąd ładowania czcionki!" << std::endl;
+        return -1;
+    }
+
+    // Inicjalizacja planszy
+    Board plansza(c_banda);
+
+    // Inicjalizacja menu głównego z 5 opcjami
+    Menu menu_glowne(5);
+    menu_glowne.menu_text[0].setString("SINGLEPLAYER");
+    menu_glowne.menu_text[1].setString("MULTIPLAYER");
+    menu_glowne.menu_text[2].setString("TRAINING");
+    menu_glowne.menu_text[3].setString("SETTINGS");
+    menu_glowne.menu_text[4].setString("HELP");
+    menu_glowne.menu_text[5].setString("EXIT");
+
+    // Inicjalizacja graczy
+    Player player[2];
+    //// Wprowadzanie nicków przez interfejs graficzny
+    //for (int i = 0; i < 2; i++) {
+    //    window.clear(sf::Color::Black);
+    //    player[i].insertNick(window, arial);
+    //    window.display();
+    //}
+
+    // Wyświetlenie nicków w konsoli (opcjonalne)
+    std::cout << "Gracz 1: " << player[0].nick << "\nGracz 2: " << player[1].nick << std::endl;
+
+    // Inicjalizacja paletek
+    Tile tile[2];
+    sf::RectangleShape paletka[2];
+    for (int i = 0; i < 2; i++) {
+        paletka[i].setSize(sf::Vector2f(tile[i].a, tile[i].b));
+        paletka[i].setFillColor(sf::Color::Yellow);
+        paletka[i].setPosition(tile[i].x_pos, (i == 0) ? WINDOW_HEIGHT - tile[i].b - c_banda : c_banda);
+    }
+
+    // Inicjalizacja piłek
+    const int MAX_BALLS = 500;
+
+    Ball balls[MAX_BALLS];
+    sf::CircleShape pilki[MAX_BALLS];
+    for (int i = 0; i < MAX_BALLS; i++) {
+        pilki[i].setFillColor(sf::Color::White);
+        pilki[i].setRadius(balls[i].r);
+        pilki[i].setPointCount(50);
+        pilki[i].setPosition(balls[i].x_pos, balls[i].y_pos);
+    }
+
+    // Inicjalizacja menu ustawień
+    Menu settings_menu(2);
+    settings_menu.menu_text[0].setString("1 Player Controls");
+    settings_menu.menu_text[1].setString("2 Players Controls");
+
+    // Punktacja graczy
+    sf::Text score_text[2][3]; // [gracz][cyfra]
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 3; j++) {
+            score_text[i][j].setFont(font);
+            score_text[i][j].setCharacterSize(30);
+            score_text[i][j].setFillColor(sf::Color::Red);
+            score_text[i][j].setPosition(Width + 50 + c_banda + j * 40, (i == 0) ? WINDOW_HEIGHT - 100 : 50);
+            score_text[i][j].setString("0");
+        }
+    }
+
+    // Stan gry
+    int game_status = 100; // 100 - menu, 0 - singleplayer, 1 - multiplayer, 2 - ustawienia, 3 - pomoc, 4 - wyjście
+
+    //// Liczba piłek
+    //int balls_amount_choice = 40; // Domyślna liczba piłek
+    //int balls_amount_after = balls_amount_choice;
+    //while (window.isOpen()) {
+    //    menu_glowne.markActiveSelection(window);  // Wyświetlaj aktywne elementy
+    //    if (menu_glowne.getChoice() == 0) {  // SINGLEPLAYER
+    //        gameState = SINGLEPLAYER;
+    //        break;
+    //    }
+    //    else if (menu_glowne.getChoice() == 1) {  // MULTIPLAYER
+    //        gameState = MULTIPLAYER;
+    //        break;
+    //    }
+    //    else if (menu_glowne.getChoice() == 2) {  // TRAINING
+    //        gameState = TRAINING;
+    //        break;
+    //    }
+    //    else if (menu_glowne.getChoice() == 4) {  // HELP
+    //        showHelp(window, font);
+    //    }
+    //    else if (menu_glowne.getChoice() == 3) {
+    //        window.close();
+    //    }
+    //    else if (menu_glowne.getChoice() == 5) {  // EXIT
+    //        window.close();
+    //    }
+    //}
+
+    // Po wyborze singleplayer, multiplayer lub trening, przejście do wprowadzenia nicku:
+    if (gameState == SINGLEPLAYER || gameState == MULTIPLAYER || gameState == TRAINING) {
+
+        Player player[2];
+        for (int i = 0; i < 2; i++) {
+            insertNick(window, font, player[i].nick);  // Wprowadzanie nicku przez funkcję
+        }
+        std::cout << "Gracz 1: " << player[0].nick << "\nGracz 2: " << player[1].nick << std::endl;
+
+        int difficulty_level = 0;
+        chooseDifficulty(window, font, difficulty_level);
+       
+        int balls_amount_choice = 0;
+        chooseBallsAmount(window, font, balls_amount_choice);
+    }
+
+
+
+
+    // Główna pętla gry
+    while (window.isOpen()) {
+        sf::Event event;
+
+        // Obsługa zdarzeń
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+
+            // Pauza po wciśnięciu ESC
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+                pauseGame(window, font);
+            }
+
+            // Pomoc po wciśnięciu F1
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F1) {
+                showHelp(window, font);
+            }
+        }
+
+        // Obsługa stanu gry
+        switch (game_status) {
+        case 100: {  // Menu glowne
+            window.clear(sf::Color(181, 230, 29, 255));  // Kolor tla
+            menu_glowne.markActiveSelection(window);
+            menu_glowne.draw(window);
+            window.display();
+
+            int user_choice = menu_glowne.getChoice();
+            if (user_choice != 100) {
+                game_status = user_choice;
+                menu_glowne.setChoice(100);  // Reset wyboru
+
+                // Resetowanie punktacji
+                player[0].score = 0;
+                player[1].score = 0;
+                for (int i = 0; i < 3; i++) {
+                    score_text[0][i].setString("0");
+                    score_text[1][i].setString("0");
+                }
+            }
+            break;
+        }
+
+        case 0: {  // Singleplayer
+            std::string player1_nick;
+            insertNick(window, font, player1_nick);  // Wpisanie nicku
+            countdown(window, font);                // Odliczanie
+
+            // Logika singleplayer
+            game_status = 100;  // Powrót do menu
+            break;
+        }
+
+        case 1: {  // Multiplayer
+            std::string player1_nick, player2_nick;
+            insertNick(window, font, player1_nick);  // Gracz 1
+            insertNick(window, font, player2_nick);  // Gracz 2
+            countdown(window, font);                // Odliczanie
+
+            // Logika multiplayer
+            game_status = 100;  // Powrót do menu
+            break;
+        }
+
+        case 2: {  // Ustawienia
+            window.clear(sf::Color::Black);
+            settings_menu.markActiveSelection(window);
+            settings_menu.draw(window);
+            window.display();
+
+            int settings_choice = settings_menu.getChoice();
+            if (settings_choice != 100) {
+                if (settings_choice == 0) {
+                    std::cout << "Sterowanie dla 1 gracza: A - lewo, D - prawo" << std::endl;
+                }
+                else if (settings_choice == 1) {
+                    std::cout << "Sterowanie dla 2 graczy:\nGracz 1: A - lewo, D - prawo\nGracz 2: Strzalki" << std::endl;
+                }
+                settings_menu.setChoice(100);
+            }
+            break;
+        }
+
+        case 3: {  // Pomoc
+            showHelp(window, font);
+            game_status = 100;
+            break;
+        }
+
+        case 4: {  // Wyjście
+            window.close();
+            break;
+        }
+
+
+        default: {
+            std::cout << "Błąd - game_status poza zakresem!" << std::endl;
+            window.close();
+            break;
+        }
+        }
+
+        // Rysowanie elementów gry
+        window.clear(sf::Color::Black);
+        plansza.draw(window);
+
+        // Rysowanie paletek
+        for (int i = 0; i < 2; i++) {
+            window.draw(paletka[i]);
+        }
+
+        //// Rysowanie piłek
+        //for (int i = 0; i < balls_amount_choice; i++) {
+        //    if (balls[i].state) {
+        //        pilki[i].setPosition(balls[i].x_pos, balls[i].y_pos);
+        //        window.draw(pilki[i]);
+        //    }
+        //}
+
+        // Rysowanie punktacji
+        for (int i = 0; i < 2; i++) {
+            std::string score_str = std::to_string(player[i].score);
+            while (score_str.length() < 3) {
+                score_str = "0" + score_str;
+            }
+            for (int j = 0; j < 3; j++) {
+                score_text[i][j].setString(std::string(1, score_str[j]));
+                window.draw(score_text[i][j]);
+            }
+        }
+
+        window.display();
+    }
+
+}
+
+    
+    
