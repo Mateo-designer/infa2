@@ -1,3 +1,4 @@
+//jeszcze opis zrobic
 #define _CRT_SECURE_NO_WARNINGS
 #define Width 600 // Szerokość planszy
 #define Height 600 // Wysokość planszy
