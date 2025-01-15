@@ -1,0 +1,1441 @@
+//Jeszcze drobne poprawki typu usunięcie std- zastosowanie usingnamespave std; lepsza przejrzystosc w kodzie, więcej klas przed funkcją main, więcej komentarzy
+#define _CRT_SECURE_NO_WARNINGS
+#include <SFML/Graphics.hpp>
+#include <SFML/System.hpp>
+#include <SFML/Main.hpp>
+#include <iostream>
+#include <string>
+#include <ctime>
+#include <cmath>
+#include <cstdlib>
+#include <vector>
+
+// Wymiary okna i wymiary "obszaru gry"
+#define WINDOW_WIDTH   1000   // całkowita szerokość okna
+#define WINDOW_HEIGHT  800    // całkowita wysokość okna
+#define GAME_WIDTH     800    // szerokość obszaru gry
+#define GAME_HEIGHT    800    // wysokość obszaru gry
+#define b_paletka 10  // grubość paletki dolnej/górnej
+
+// Klasa Board
+class Board {
+public:
+    sf::RectangleShape top_border;
+    sf::RectangleShape left_border;
+    sf::RectangleShape right_border;
+    sf::RectangleShape bottom_border;
+    float c_banda;  // grubość bandy
+
+    Board(float cb) {
+        c_banda = cb;
+
+        // Górna banda
+        top_border.setSize(sf::Vector2f((float)GAME_WIDTH, cb));
+        top_border.setFillColor(sf::Color::Blue);
+        top_border.setPosition(0.f, 0.f);
+
+        // Lewa banda
+        left_border.setSize(sf::Vector2f(cb, (float)GAME_HEIGHT));
+        left_border.setFillColor(sf::Color::Blue);
+        left_border.setPosition(0.f, 0.f);
+
+        // Prawa banda
+        right_border.setSize(sf::Vector2f(cb, (float)GAME_HEIGHT));
+        right_border.setFillColor(sf::Color::Blue);
+        right_border.setPosition((float)GAME_WIDTH - cb, 0.f);
+
+        // Dolna banda
+        bottom_border.setSize(sf::Vector2f((float)GAME_WIDTH, cb));
+        bottom_border.setFillColor(sf::Color::Blue);
+        bottom_border.setPosition(0.f, (float)GAME_HEIGHT - cb);
+    }
+
+    void draw(sf::RenderWindow& w) {
+        w.draw(top_border);
+        w.draw(left_border);
+        w.draw(right_border);
+        w.draw(bottom_border);
+    }
+};
+
+// Klasa Player (nick, score)
+class Player {
+public:
+    std::string nick;
+    int score = 0;
+};
+
+// Struktura przycisku (Button) + funkcja setInnerRect
+struct Button {
+    sf::Sprite sprite;
+    sf::Text   text;
+    sf::RectangleShape innerRect;
+
+    bool contains(float mx, float my) const {
+        return sprite.getGlobalBounds().contains(mx, my);
+    }
+    void draw(sf::RenderWindow& w) {
+        w.draw(sprite);
+        w.draw(text);
+        w.draw(innerRect);
+    }
+};
+
+void setInnerRect(Button& btn, float thickness) {
+    sf::FloatRect b = btn.sprite.getGlobalBounds();
+    float offset = 3.f;
+
+    btn.innerRect.setPosition(b.left + offset, b.top + offset);
+    btn.innerRect.setSize(sf::Vector2f(b.width - 2 * offset,
+        b.height - 2 * offset));
+    btn.innerRect.setFillColor(sf::Color::Transparent);
+
+    if (thickness > 0.f) {
+        btn.innerRect.setOutlineThickness(thickness);
+        btn.innerRect.setOutlineColor(sf::Color::Red);
+    }
+    else {
+        btn.innerRect.setOutlineThickness(0.f);
+    }
+}
+
+// Deklaracje funkcji menu/pomoc
+void pauseGame(sf::RenderWindow& w, sf::Font& f);
+void showHelp(sf::RenderWindow& w, sf::Font& f);
+
+int  chooseSubModeSingle(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS);
+int  chooseSubModeMulti(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS);
+int  chooseDifficulty(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS);
+int  chooseBallsAmount(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS);
+
+void showGameOver(sf::RenderWindow& w, sf::Font& f);
+void enterNickSFML(sf::RenderWindow& w, sf::Font& f,
+    std::string& nick, int pIndex);
+
+void runGame(sf::RenderWindow& w, int subMode,
+    int difficulty, int ballsCount,
+    Player player[2]);
+
+// Funkcja pauzy (ESC)
+void pauseGame(sf::RenderWindow& w, sf::Font& f) {
+    sf::Text question("Czy chcesz opuscic gre?", f, 40);
+    question.setFillColor(sf::Color::White);
+    question.setPosition(150.f, 200.f);
+
+    sf::Text yes("TAK", f, 30);
+    yes.setFillColor(sf::Color::Green);
+    yes.setPosition(200.f, 300.f);
+
+    sf::Text no("NIE", f, 30);
+    no.setFillColor(sf::Color::Red);
+    no.setPosition(350.f, 300.f);
+
+    bool paused = true;
+    while (w.isOpen() && paused) {
+        sf::Event e;
+        while (w.pollEvent(e)) {
+            if (e.type == sf::Event::Closed) {
+                w.close();
+                return;
+            }
+            if (e.type == sf::Event::MouseButtonPressed) {
+                float mx = (float)e.mouseButton.x;
+                float my = (float)e.mouseButton.y;
+                if (yes.getGlobalBounds().contains(mx, my)) {
+                    w.close();
+                }
+                else if (no.getGlobalBounds().contains(mx, my)) {
+                    paused = false;
+                }
+            }
+        }
+        w.clear(sf::Color::Black);
+        w.draw(question);
+        w.draw(yes);
+        w.draw(no);
+        w.display();
+    }
+}
+
+// showHelp - z opisem klawiszy
+void showHelp(sf::RenderWindow& w, sf::Font& f) {
+    sf::String helpStr =
+        "HELP:\n"
+        "F1 = pomoc\n"
+        "ESC = pauza\n"
+        "\nSTEROWANIE:\n"
+        " - Dolna paletka (Gracz 1): klawisze A / D\n"
+        " - Gorna paletka (Gracz 2 w multi): strzalki LEWO / PRAWO\n"
+        "\nKlik 'Powrot' aby wyjsc.";
+
+    sf::Text help(helpStr, f, 24);
+    help.setFillColor(sf::Color::White);
+    help.setPosition(50.f, 50.f);
+
+    sf::Texture texN, texS;
+    texN.loadFromFile("resources/menu_unselected.png");
+    texS.loadFromFile("resources/menu_selected.png");
+
+    Button btnPowrot;
+    btnPowrot.sprite.setTexture(texN);
+    btnPowrot.sprite.setScale(0.5f, 0.5f);
+    btnPowrot.text.setFont(f);
+    btnPowrot.text.setString("Powrot");
+    btnPowrot.text.setCharacterSize(24);
+    btnPowrot.text.setFillColor(sf::Color::Black);
+    btnPowrot.sprite.setPosition(10.f, (float)w.getSize().y - 70.f);
+    btnPowrot.text.setPosition(btnPowrot.sprite.getPosition().x + 10.f,
+        btnPowrot.sprite.getPosition().y + 5.f);
+    setInnerRect(btnPowrot, 0.f);
+
+    bool endScreen = false;
+    while (w.isOpen() && !endScreen) {
+        sf::Event e;
+        while (w.pollEvent(e)) {
+            if (e.type == sf::Event::Closed) {
+                w.close();
+                return;
+            }
+            if (e.type == sf::Event::MouseMoved) {
+                float mx = (float)e.mouseMove.x;
+                float my = (float)e.mouseMove.y;
+                if (btnPowrot.contains(mx, my)) {
+                    setInnerRect(btnPowrot, 3.f);
+                }
+                else {
+                    setInnerRect(btnPowrot, 0.f);
+                }
+            }
+            if (e.type == sf::Event::MouseButtonPressed &&
+                e.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)e.mouseButton.x;
+                float my = (float)e.mouseButton.y;
+                if (btnPowrot.contains(mx, my)) {
+                    endScreen = true;
+                }
+            }
+        }
+        w.clear(sf::Color::Black);
+        w.draw(help);
+        btnPowrot.draw(w);
+        w.display();
+    }
+}
+
+// Wybór subMode SINGLE
+int chooseSubModeSingle(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS)
+{
+    sf::Text title("Wybierz tryb SINGLEPLAYER:", f, 40);
+    title.setFillColor(sf::Color::White);
+    title.setPosition(50.f, 50.f);
+
+    Button btnTrain, btnOneP, btnOK, btnPowrot;
+    // TRAIN
+    btnTrain.sprite.setTexture(texN);
+    btnTrain.sprite.setScale(0.6f, 0.6f);
+    btnTrain.text.setFont(f);
+    btnTrain.text.setString("TRAINING WITH AI");
+    btnTrain.text.setCharacterSize(30);
+    btnTrain.text.setFillColor(sf::Color::Black);
+    btnTrain.sprite.setPosition(50.f, 150.f);
+    btnTrain.text.setPosition(btnTrain.sprite.getPosition().x + 20.f,
+        btnTrain.sprite.getPosition().y + 10.f);
+    setInnerRect(btnTrain, 0.f);
+
+    // 1 PLAYER
+    btnOneP.sprite.setTexture(texN);
+    btnOneP.sprite.setScale(0.6f, 0.6f);
+    btnOneP.text.setFont(f);
+    btnOneP.text.setString("1 PLAYER");
+    btnOneP.text.setCharacterSize(30);
+    btnOneP.text.setFillColor(sf::Color::Black);
+    btnOneP.sprite.setPosition(50.f, 250.f);
+    btnOneP.text.setPosition(btnOneP.sprite.getPosition().x + 20.f,
+        btnOneP.sprite.getPosition().y + 10.f);
+    setInnerRect(btnOneP, 0.f);
+
+    // Zatwierdz
+    btnOK.sprite.setTexture(texN);
+    btnOK.sprite.setScale(0.5f, 0.5f);
+    btnOK.text.setFont(f);
+    btnOK.text.setString("Zatwierdz");
+    btnOK.text.setCharacterSize(24);
+    btnOK.text.setFillColor(sf::Color::Black);
+    btnOK.sprite.setPosition((float)GAME_WIDTH - 130.f, (float)GAME_HEIGHT - 70.f);
+    btnOK.text.setPosition(btnOK.sprite.getPosition().x + 20.f,
+        btnOK.sprite.getPosition().y + 10.f);
+    setInnerRect(btnOK, 0.f);
+
+    // Powrot
+    btnPowrot.sprite.setTexture(texN);
+    btnPowrot.sprite.setScale(0.5f, 0.5f);
+    btnPowrot.text.setFont(f);
+    btnPowrot.text.setString("Powrot");
+    btnPowrot.text.setCharacterSize(24);
+    btnPowrot.text.setFillColor(sf::Color::Black);
+    btnPowrot.sprite.setPosition(10.f, (float)w.getSize().y - 70.f);
+    btnPowrot.text.setPosition(btnPowrot.sprite.getPosition().x + 10.f,
+        btnPowrot.sprite.getPosition().y + 5.f);
+    setInnerRect(btnPowrot, 0.f);
+
+    int chosen = -1;
+    bool run = true;
+    while (w.isOpen() && run) {
+        sf::Event e;
+        while (w.pollEvent(e)) {
+            if (e.type == sf::Event::Closed) {
+                w.close();
+                return -1;
+            }
+            if (e.type == sf::Event::MouseMoved) {
+                float mx = (float)e.mouseMove.x;
+                float my = (float)e.mouseMove.y;
+                if (btnTrain.contains(mx, my))
+                    setInnerRect(btnTrain, (chosen == 0) ? 5.f : 3.f);
+                else
+                    setInnerRect(btnTrain, (chosen == 0) ? 5.f : 0.f);
+
+                if (btnOneP.contains(mx, my))
+                    setInnerRect(btnOneP, (chosen == 1) ? 5.f : 3.f);
+                else
+                    setInnerRect(btnOneP, (chosen == 1) ? 5.f : 0.f);
+
+                if (btnOK.contains(mx, my))
+                    setInnerRect(btnOK, 3.f);
+                else
+                    setInnerRect(btnOK, 0.f);
+
+                if (btnPowrot.contains(mx, my))
+                    setInnerRect(btnPowrot, 3.f);
+                else
+                    setInnerRect(btnPowrot, 0.f);
+            }
+            if (e.type == sf::Event::MouseButtonPressed &&
+                e.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)e.mouseButton.x;
+                float my = (float)e.mouseButton.y;
+                if (btnTrain.contains(mx, my)) {
+                    chosen = 0; // training AI
+                }
+                if (btnOneP.contains(mx, my)) {
+                    chosen = 1; // single
+                }
+                if (btnOK.contains(mx, my)) {
+                    if (chosen != -1) return chosen;
+                }
+                if (btnPowrot.contains(mx, my)) {
+                    return -2;
+                }
+            }
+        }
+        w.clear(sf::Color::Black);
+        w.draw(title);
+        btnTrain.draw(w);
+        btnOneP.draw(w);
+        btnOK.draw(w);
+        btnPowrot.draw(w);
+        w.display();
+    }
+    return chosen;
+}
+
+// Wybór subMode MULTI
+int chooseSubModeMulti(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS)
+{
+    sf::Text title("Wybierz tryb MULTIPLAYER:", f, 40);
+    title.setFillColor(sf::Color::White);
+    title.setPosition(50.f, 50.f);
+
+    Button btn2p, btnOK, btnPowrot;
+    btn2p.sprite.setTexture(texN);
+    btn2p.sprite.setScale(0.6f, 0.6f);
+    btn2p.text.setFont(f);
+    btn2p.text.setString("2 PLAYERS");
+    btn2p.text.setCharacterSize(30);
+    btn2p.text.setFillColor(sf::Color::Black);
+    btn2p.sprite.setPosition(50.f, 150.f);
+    btn2p.text.setPosition(btn2p.sprite.getPosition().x + 20.f,
+        btn2p.sprite.getPosition().y + 10.f);
+    setInnerRect(btn2p, 0.f);
+
+    // Zatwierdz
+    btnOK.sprite.setTexture(texN);
+    btnOK.sprite.setScale(0.5f, 0.5f);
+    btnOK.text.setFont(f);
+    btnOK.text.setString("Zatwierdz");
+    btnOK.text.setCharacterSize(24);
+    btnOK.text.setFillColor(sf::Color::Black);
+    btnOK.sprite.setPosition((float)GAME_WIDTH - 130.f, (float)GAME_HEIGHT - 70.f);
+    btnOK.text.setPosition(btnOK.sprite.getPosition().x + 20.f,
+        btnOK.sprite.getPosition().y + 10.f);
+    setInnerRect(btnOK, 0.f);
+
+    btnPowrot.sprite.setTexture(texN);
+    btnPowrot.sprite.setScale(0.5f, 0.5f);
+    btnPowrot.text.setFont(f);
+    btnPowrot.text.setString("Powrot");
+    btnPowrot.text.setCharacterSize(24);
+    btnPowrot.text.setFillColor(sf::Color::Black);
+    btnPowrot.sprite.setPosition(10.f, (float)w.getSize().y - 70.f);
+    btnPowrot.text.setPosition(btnPowrot.sprite.getPosition().x + 10.f,
+        btnPowrot.sprite.getPosition().y + 5.f);
+    setInnerRect(btnPowrot, 0.f);
+
+    bool selected = false;
+    bool run = true;
+    int chosen = -1;
+    while (w.isOpen() && run) {
+        sf::Event e;
+        while (w.pollEvent(e)) {
+            if (e.type == sf::Event::Closed) {
+                w.close();
+                return -1;
+            }
+            if (e.type == sf::Event::MouseMoved) {
+                float mx = (float)e.mouseMove.x;
+                float my = (float)e.mouseMove.y;
+                if (btn2p.contains(mx, my))
+                    setInnerRect(btn2p, (selected ? 5.f : 3.f));
+                else
+                    setInnerRect(btn2p, (selected ? 5.f : 0.f));
+
+                if (btnOK.contains(mx, my))
+                    setInnerRect(btnOK, 3.f);
+                else
+                    setInnerRect(btnOK, 0.f);
+
+                if (btnPowrot.contains(mx, my))
+                    setInnerRect(btnPowrot, 3.f);
+                else
+                    setInnerRect(btnPowrot, 0.f);
+            }
+            if (e.type == sf::Event::MouseButtonPressed &&
+                e.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)e.mouseButton.x;
+                float my = (float)e.mouseButton.y;
+                if (btn2p.contains(mx, my)) {
+                    chosen = 2;
+                    selected = true;
+                }
+                if (btnOK.contains(mx, my)) {
+                    if (selected) return chosen;
+                }
+                if (btnPowrot.contains(mx, my)) {
+                    return -2;
+                }
+            }
+        }
+        w.clear(sf::Color::Black);
+        w.draw(title);
+        btn2p.draw(w);
+        btnOK.draw(w);
+        btnPowrot.draw(w);
+        w.display();
+    }
+    return chosen;
+}
+
+// Wybór poziomu trudności
+int chooseDifficulty(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS)
+{
+    sf::Text title("Wybierz poziom trudnosci:", f, 40);
+    title.setFillColor(sf::Color::White);
+    title.setPosition(50.f, 50.f);
+
+    Button b1, b2, b3, bOK, bPowrot;
+    b1.sprite.setTexture(texN);
+    b1.sprite.setScale(0.6f, 0.6f);
+    b1.text.setFont(f);
+    b1.text.setString("LATWY");
+    b1.text.setCharacterSize(30);
+    b1.text.setFillColor(sf::Color::Black);
+    b1.sprite.setPosition(50.f, 150.f);
+    b1.text.setPosition(b1.sprite.getPosition().x + 20.f,
+        b1.sprite.getPosition().y + 10.f);
+    setInnerRect(b1, 0.f);
+
+    b2.sprite.setTexture(texN);
+    b2.sprite.setScale(0.6f, 0.6f);
+    b2.text.setFont(f);
+    b2.text.setString("SREDNI");
+    b2.text.setCharacterSize(30);
+    b2.text.setFillColor(sf::Color::Black);
+    b2.sprite.setPosition(50.f, 250.f);
+    b2.text.setPosition(b2.sprite.getPosition().x + 20.f,
+        b2.sprite.getPosition().y + 10.f);
+    setInnerRect(b2, 0.f);
+
+    b3.sprite.setTexture(texN);
+    b3.sprite.setScale(0.6f, 0.6f);
+    b3.text.setFont(f);
+    b3.text.setString("TRUDNY");
+    b3.text.setCharacterSize(30);
+    b3.text.setFillColor(sf::Color::Black);
+    b3.sprite.setPosition(50.f, 350.f);
+    b3.text.setPosition(b3.sprite.getPosition().x + 20.f,
+        b3.sprite.getPosition().y + 10.f);
+    setInnerRect(b3, 0.f);
+
+    // Zatwierdz
+    bOK.sprite.setTexture(texN);
+    bOK.sprite.setScale(0.5f, 0.5f);
+    bOK.text.setFont(f);
+    bOK.text.setString("Zatwierdz");
+    bOK.text.setCharacterSize(24);
+    bOK.text.setFillColor(sf::Color::Black);
+    bOK.sprite.setPosition((float)GAME_WIDTH - 130.f, (float)GAME_HEIGHT - 70.f);
+    bOK.text.setPosition(bOK.sprite.getPosition().x + 20.f,
+        bOK.sprite.getPosition().y + 10.f);
+    setInnerRect(bOK, 0.f);
+
+
+    bPowrot.sprite.setTexture(texN);
+    bPowrot.sprite.setScale(0.5f, 0.5f);
+    bPowrot.text.setFont(f);
+    bPowrot.text.setString("Powrot");
+    bPowrot.text.setCharacterSize(24);
+    bPowrot.text.setFillColor(sf::Color::Black);
+    bPowrot.sprite.setPosition(10.f, (float)w.getSize().y - 70.f);
+    bPowrot.text.setPosition(bPowrot.sprite.getPosition().x + 10.f,
+        bPowrot.sprite.getPosition().y + 5.f);
+    setInnerRect(bPowrot, 0.f);
+
+    int chosen = 0;
+    bool run = true;
+    while (w.isOpen() && run) {
+        sf::Event ev;
+        while (w.pollEvent(ev)) {
+            if (ev.type == sf::Event::Closed) {
+                w.close();
+                return 0;
+            }
+            if (ev.type == sf::Event::MouseMoved) {
+                float mx = (float)ev.mouseMove.x;
+                float my = (float)ev.mouseMove.y;
+                if (b1.contains(mx, my))
+                    setInnerRect(b1, (chosen == 1) ? 5.f : 3.f);
+                else
+                    setInnerRect(b1, (chosen == 1) ? 5.f : 0.f);
+
+                if (b2.contains(mx, my))
+                    setInnerRect(b2, (chosen == 2) ? 5.f : 3.f);
+                else
+                    setInnerRect(b2, (chosen == 2) ? 5.f : 0.f);
+
+                if (b3.contains(mx, my))
+                    setInnerRect(b3, (chosen == 3) ? 5.f : 3.f);
+                else
+                    setInnerRect(b3, (chosen == 3) ? 5.f : 0.f);
+
+                if (bOK.contains(mx, my))
+                    setInnerRect(bOK, 3.f);
+                else
+                    setInnerRect(bOK, 0.f);
+
+                if (bPowrot.contains(mx, my))
+                    setInnerRect(bPowrot, 3.f);
+                else
+                    setInnerRect(bPowrot, 0.f);
+            }
+            if (ev.type == sf::Event::MouseButtonPressed &&
+                ev.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)ev.mouseButton.x;
+                float my = (float)ev.mouseButton.y;
+                if (b1.contains(mx, my)) chosen = 1;
+                if (b2.contains(mx, my)) chosen = 2;
+                if (b3.contains(mx, my)) chosen = 3;
+                if (bOK.contains(mx, my)) {
+                    if (chosen != 0) return chosen;
+                }
+                if (bPowrot.contains(mx, my)) {
+                    return -2;
+                }
+            }
+        }
+        w.clear(sf::Color::Black);
+        w.draw(title);
+        b1.draw(w);
+        b2.draw(w);
+        b3.draw(w);
+        bOK.draw(w);
+        bPowrot.draw(w);
+        w.display();
+    }
+    return chosen;
+}
+// Tutaj przycisk "Zatwierdz i uruchom gre" - uruchomienie gry
+int chooseBallsAmount(sf::RenderWindow& w, sf::Font& f,
+    const sf::Texture& texN, const sf::Texture& texS)
+{
+    sf::Text prompt("Ile wybierasz pilek (1-500)?", f, 30);
+    prompt.setFillColor(sf::Color::White);
+    prompt.setPosition(50.f, 100.f);
+
+    sf::Text input("", f, 30);
+    input.setFillColor(sf::Color::Yellow);
+    input.setPosition(50.f, 160.f);
+
+    Button bOK, bPowrot;
+    bOK.sprite.setTexture(texN);
+    bOK.sprite.setScale(0.6f, 0.6f);
+    bOK.text.setFont(f);
+    bOK.text.setString("Zatwierdz i uruchom gre");
+    bOK.text.setCharacterSize(25);
+    bOK.text.setFillColor(sf::Color::Black);
+
+    // Ustawienie w rozsądnym miejscu
+    bOK.sprite.setPosition(50.f, 300.f);
+    bOK.text.setPosition(bOK.sprite.getPosition().x + 10.f,
+        bOK.sprite.getPosition().y + 5.f);
+    setInnerRect(bOK, 0.f);
+
+    bPowrot.sprite.setTexture(texN);
+    bPowrot.sprite.setScale(0.5f, 0.5f);
+    bPowrot.text.setFont(f);
+    bPowrot.text.setString("Powrot");
+    bPowrot.text.setCharacterSize(24);
+    bPowrot.text.setFillColor(sf::Color::Black);
+    bPowrot.sprite.setPosition(10.f, (float)w.getSize().y - 70.f);
+    bPowrot.text.setPosition(bPowrot.sprite.getPosition().x + 10.f,
+        bPowrot.sprite.getPosition().y + 5.f);
+    setInnerRect(bPowrot, 0.f);
+
+    std::string userStr;
+    int val = 0;
+    bool run = true;
+    while (w.isOpen() && run) {
+        sf::Event ev;
+        while (w.pollEvent(ev)) {
+            if (ev.type == sf::Event::Closed) {
+                w.close();
+                return 0;
+            }
+            if (ev.type == sf::Event::MouseMoved) {
+                float mx = (float)ev.mouseMove.x;
+                float my = (float)ev.mouseMove.y;
+                if (bOK.contains(mx, my))
+                    setInnerRect(bOK, 3.f);
+                else
+                    setInnerRect(bOK, 0.f);
+
+                if (bPowrot.contains(mx, my))
+                    setInnerRect(bPowrot, 3.f);
+                else
+                    setInnerRect(bPowrot, 0.f);
+            }
+            if (ev.type == sf::Event::TextEntered) {
+                if (ev.text.unicode == '\b') {
+                    if (!userStr.empty()) userStr.pop_back();
+                }
+                else if (ev.text.unicode == '\r') {
+                    if (!userStr.empty()) {
+                        try {
+                            val = std::stoi(userStr);
+                            if (val >= 1 && val <= 500) {
+                                return val;
+                            }
+                            else {
+                                userStr.clear();
+                            }
+                        }
+                        catch (...) {
+                            userStr.clear();
+                        }
+                    }
+                }
+                else if (ev.text.unicode < 128) {
+                    char c = (char)ev.text.unicode;
+                    if (std::isdigit(c)) userStr.push_back(c);
+                }
+            }
+            if (ev.type == sf::Event::MouseButtonPressed &&
+                ev.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)ev.mouseButton.x;
+                float my = (float)ev.mouseButton.y;
+                if (bOK.contains(mx, my)) {
+                    if (!userStr.empty()) {
+                        try {
+                            val = std::stoi(userStr);
+                            if (val >= 1 && val <= 500) {
+                                return val;
+                            }
+                            else {
+                                userStr.clear();
+                            }
+                        }
+                        catch (...) {
+                            userStr.clear();
+                        }
+                    }
+                }
+                if (bPowrot.contains(mx, my)) {
+                    return -2;
+                }
+            }
+        }
+        input.setString(userStr);
+
+        w.clear(sf::Color::Black);
+        w.draw(prompt);
+        w.draw(input);
+        bOK.draw(w);
+        bPowrot.draw(w);
+        w.display();
+    }
+    return val;
+}
+
+// showGameOver
+void showGameOver(sf::RenderWindow& w, sf::Font& f) {
+    sf::Text end("KONIEC GRY", f, 80);
+    end.setFillColor(sf::Color::Red);
+    end.setPosition(150.f, 200.f);
+
+    sf::Text instruction("Aby zamknac gre, wcisnij ENTER", f, 50);
+    instruction.setFillColor(sf::Color::Red);
+    instruction.setPosition(100.f, 300.f);
+
+    bool visible = true;
+    sf::Clock clk;
+
+    while (w.isOpen()) {
+        sf::Event e;
+        while (w.pollEvent(e)) {
+            if (e.type == sf::Event::Closed) {
+                w.close();
+                return;
+            }
+            if (e.type == sf::Event::KeyPressed && e.key.code == sf::Keyboard::Enter) {
+                w.close();
+                return;
+            }
+        }
+
+        if (clk.getElapsedTime().asSeconds() > 1.f) {
+            visible = !visible;
+            clk.restart();
+        }
+
+        w.clear(sf::Color::Black);
+        if (visible) w.draw(end);
+        w.draw(instruction);
+        w.display();
+    }
+}
+
+
+// Wczytywanie nicku gracza
+void enterNickSFML(sf::RenderWindow& w, sf::Font& f,
+    std::string& nick, int pIndex)
+{
+    sf::Text prompt("Podaj nick gracza : " + std::to_string(pIndex + 1) + ":", f, 30);
+    prompt.setFillColor(sf::Color::White);
+    prompt.setPosition(50.f, 100.f);
+
+    sf::Text input("", f, 30);
+    input.setFillColor(sf::Color::Yellow);
+    input.setPosition(50.f, 160.f);
+
+    sf::Texture tN, tS;
+    tN.loadFromFile("resources/menu_unselected.png");
+    tS.loadFromFile("resources/menu_selected.png");
+
+    Button btnOK;
+    btnOK.sprite.setTexture(tN);
+    btnOK.sprite.setScale(0.6f, 0.6f);
+    btnOK.text.setFont(f);
+    btnOK.text.setString("Zatwierdz");
+    btnOK.text.setCharacterSize(25);
+    btnOK.text.setFillColor(sf::Color::Black);
+    btnOK.sprite.setPosition(50.f, 300.f);
+    btnOK.text.setPosition(btnOK.sprite.getPosition().x + 20.f,
+        btnOK.sprite.getPosition().y + 10.f);
+    setInnerRect(btnOK, 0.f);
+
+    nick.clear();
+    bool done = false;
+    while (w.isOpen() && !done) {
+        sf::Event ev;
+        while (w.pollEvent(ev)) {
+            if (ev.type == sf::Event::Closed) {
+                w.close();
+                return;
+            }
+            if (ev.type == sf::Event::TextEntered) {
+                if (ev.text.unicode == '\b') {
+                    if (!nick.empty()) nick.pop_back();
+                }
+                else if (ev.text.unicode == '\r') {
+                    if (!nick.empty()) {
+                        done = true;
+                    }
+                }
+                else if (ev.text.unicode < 128) {
+                    char c = (char)ev.text.unicode;
+                    if (std::isprint(c)) {
+                        nick.push_back(c);
+                    }
+                }
+            }
+            if (ev.type == sf::Event::MouseMoved) {
+                float mx = (float)ev.mouseMove.x;
+                float my = (float)ev.mouseMove.y;
+                if (btnOK.contains(mx, my)) setInnerRect(btnOK, 3.f);
+                else setInnerRect(btnOK, 0.f);
+            }
+            if (ev.type == sf::Event::MouseButtonPressed &&
+                ev.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)ev.mouseButton.x;
+                float my = (float)ev.mouseButton.y;
+                if (btnOK.contains(mx, my)) {
+                    if (!nick.empty()) {
+                        done = true;
+                    }
+                }
+            }
+        }
+        input.setString(nick);
+        w.clear(sf::Color::Black);
+        w.draw(prompt);
+        w.draw(input);
+        btnOK.draw(w);
+        w.display();
+    }
+}
+
+
+// Funkcja pomocnicza - odliczanie 3..2..1
+void showCountdown(sf::RenderWindow& w, sf::Font& f) {
+    w.clear(sf::Color::Black);
+
+    sf::Text info("Gra rozpocznie sie za:", f, 40);
+    info.setFillColor(sf::Color::White);
+    info.setPosition(200.f, 200.f);
+
+    sf::Text countdown("", f, 80);
+    countdown.setFillColor(sf::Color::Yellow);
+    countdown.setPosition(370.f, 300.f);
+
+    for (int i = 3; i >= 1; i--) {
+        w.clear(sf::Color::Black);
+        w.draw(info);
+        countdown.setString(std::to_string(i));
+        w.draw(countdown);
+        w.display();
+        sf::sleep(sf::seconds(1.f));
+    }
+}
+
+
+// runGame - główna logika
+void runGame(sf::RenderWindow& w, int subMode,
+    int difficulty, int ballsCount,
+    Player player[2])
+{
+    // Odliczanie 3..2..1 przed startem
+    sf::Font locF;
+    locF.loadFromFile("resources/arial.ttf");
+    showCountdown(w, locF);
+
+    // Tworzymy bandy w obszarze 0..GAME_WIDTH
+    Board board(25.f);
+
+    // Zerujemy punkty
+    player[0].score = 0;
+    player[1].score = 0;
+
+    // Parametry prędkości bazowej (wzrośnie dla trudniejszych poziomów)
+    //float baseSpeed = 200.f + 100.f * (difficulty - 1);
+
+    float baseSpeed = 200.f;
+    switch (difficulty) {
+    case 1:
+        baseSpeed = 500.f;  // łatwy
+        break;
+    case 2:
+        baseSpeed = 700.f;  // średni
+        break;
+    case 3:
+        baseSpeed = 900.f;  // trudny
+        break;
+    //default:
+    //    baseSpeed = 700.f;  // fallback
+    //    break;
+    }
+
+    float zmiana = 0.005f; // do timera logicznego
+
+    // Struktura piłki
+    struct MyBall {
+        bool active;
+        float x, y;
+        float angle;  // kąt w stopniach
+        float v;      // prędkość
+        float x_dir;  // (1 lub -1)
+        float y_dir;  // (1 lub -1)
+        sf::CircleShape shape;
+
+        // Konstruktor domyślny - inicjuje wszystkie pola.
+        MyBall()
+            : active(false)     
+            , x(0.f)
+            , y(0.f)
+            , angle(0.f)
+            , v(0.f)
+            , x_dir(1.f)
+            , y_dir(1.f)
+        {
+            // Na przykład ustawienia kształtu (opcjonalnie)
+            shape.setRadius(5.f);
+            shape.setFillColor(sf::Color::White);
+            shape.setPosition(x, y);
+        }
+
+    };
+
+    // Tworzymy wektor piłek
+    std::vector<MyBall> balls(ballsCount);
+
+    // Inicjalizujemy piłki, np. w pętli:
+    for (int i = 0; i < ballsCount; i++) {
+        // Ustawiamy piłkę w środku:
+        balls[i].x = GAME_WIDTH / 2.f;
+        balls[i].y = GAME_HEIGHT / 2.f;
+        // Losowy kąt, losowa prędkość, itp.
+        balls[i].v = (float)(rand() % (int)baseSpeed + baseSpeed / 2.f);
+        balls[i].x_dir = 1.f;
+        balls[i].y_dir = 1.f;
+        balls[i].shape.setRadius(5.f);
+        //balls[i].shape.setFillColor(sf::Color::White);
+        balls[i].shape.setFillColor(sf::Color(rand() % 206 + 50, rand() % 206 + 50, rand() % 206 + 50));
+        balls[i].active = true;
+
+        // 3) Losowy kąt (30..150):
+        int angle_min = 15;
+        int angle_max = 170;
+        float a = (float)(rand() % (angle_max - angle_min) + angle_min);
+
+		
+        balls[i].angle = a;
+        //balls[i].v = baseSpeed;   // lub cokolwiek
+        // Na koniec ustawiamy pozycję kształtu
+        balls[i].shape.setPosition(balls[i].x, balls[i].y);
+    }
+
+    int balls_amount_after = ballsCount;
+
+    // Klasa paletki
+    class MyPaddle {
+    public:
+        float xPos;       // Pozycja X
+        float xDir;       // Kierunek ruchu (-1, 0, 1)
+        float speed;      // Prędkość paletki
+        int length;       // Długość paletki
+        int thickness;    // Grubość paletki
+        sf::RectangleShape shape;
+
+        MyPaddle(float startX, float startY, int len, int thick, float spd, sf::Color color) {
+            xPos = startX;
+            xDir = 0.f;
+            speed = spd;
+            length = len;
+            thickness = thick;
+            shape.setSize(sf::Vector2f((float)length, (float)thickness));
+            shape.setFillColor(color);
+            shape.setPosition(xPos, startY);
+        }
+
+        void move() {
+            xPos += xDir * speed;
+            // Lewa krawędź = 25 (nie 0!), aby było w niebieskiej bandzie paletka a nie poza
+            if (xPos < 25.f) xPos = 25.f;
+            // Prawa krawędź = GAME_WIDTH - 25 - length
+            if (xPos > (float)GAME_WIDTH - 25.f - length)
+                xPos = (float)GAME_WIDTH - 25.f - length;
+
+            shape.setPosition(xPos, shape.getPosition().y);
+        }
+    };
+    // Dolna paletka
+    MyPaddle paddle1(
+        (float)GAME_WIDTH / 2.f - 100.f,
+        (float)GAME_HEIGHT - 25.f - b_paletka,
+        200, 10, 7.f, sf::Color::Yellow
+    );
+
+    // Górna paletka (tylko w subMode=0 lub 2)
+    MyPaddle paddle2(
+        (float)GAME_WIDTH / 2.f - 100.f,
+        25.f,
+        200, 10, 7.f, sf::Color::Magenta
+    );
+
+    sf::Clock clockLogic;
+    sf::Clock clockAI;
+    sf::Clock clockTime;
+    clockTime.restart();
+
+    bool running = true;
+    while (w.isOpen() && running) {
+        sf::Event ev;
+        while (w.pollEvent(ev)) {
+            if (ev.type == sf::Event::Closed) {
+                w.close();
+                return;
+            }
+            if (ev.type == sf::Event::KeyPressed) {
+                if (ev.key.code == sf::Keyboard::Escape) {
+                    pauseGame(w, locF);
+                }
+                if (ev.key.code == sf::Keyboard::F1) {
+                    showHelp(w, locF);
+                }
+            }
+        }
+
+        // Sterowanie dolną paletką (A / D)
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+            paddle1.xDir = -1.f;
+        }
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+            paddle1.xDir = 1.f;
+        }
+        else {
+            paddle1.xDir = 0.f;
+        }
+        paddle1.move();
+
+        // Górna paletka - AI (subMode=0) lub sterowana strzałkami (subMode=2)
+        if (subMode == 0) {
+            // AI
+            if (clockAI.getElapsedTime().asSeconds() > 0.03f) {
+                clockAI.restart();
+                for (auto& b : balls) {
+                    if (b.active) {
+                        float center = paddle2.xPos + paddle2.length / 2.f;
+                        if (b.x < center - 25.f)        paddle2.xDir = -1.f;
+                        else if (b.x > center + 25.f)   paddle2.xDir = 1.f;
+                        else                            paddle2.xDir = 0.f;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (subMode == 2) {
+            // MULTI: strzalki lewo/prawo
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                paddle2.xDir = -1.f;
+            }
+            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                paddle2.xDir = 1.f;
+            }
+            else {
+                paddle2.xDir = 0.f;
+            }
+        }
+        if (subMode == 0 || subMode == 2) {
+            paddle2.move();
+        }
+
+        // Logika pilek
+        if (clockLogic.getElapsedTime().asSeconds() > zmiana) {
+            clockLogic.restart();
+
+            // Górna paletka: dolna krawędź
+            float paddle2BottomY = 25.f + paddle2.thickness; // = 25 + 10
+            // Dolna paletka: górna krawędź
+            float paddle1TopY = (float)GAME_HEIGHT - 25.f - b_paletka; // = 800 - 25 - 10 = 765
+
+            for (auto& b : balls) {
+                if (!b.active) continue;
+
+                // Lewa/prawa banda
+                if (b.x < 25.f) {
+                    b.x = 25.f;
+                    b.x_dir *= -1.f;
+                }
+                else if (b.x > GAME_WIDTH - 25.f - 2.f * b.shape.getRadius()) {
+                    b.x = GAME_WIDTH - 25.f - 2.f * b.shape.getRadius();
+                    b.x_dir *= -1.f;
+                }
+                //poprawka paletek _15.01_15.30 :
+                if (subMode == 0 || subMode == 2) {
+                    // Piłka leci w górę?
+                    if (b.y_dir < 0.f) {
+                        float ballTop = b.y; // górna krawędź piłki
+                        float paddle2BottomY = 25.f + paddle2.thickness; // 35.f
+
+                        if (ballTop <= paddle2BottomY) {
+                            // Sprawdź, czy piłka X-owo nakłada się z paletką
+                            float ballLeft = b.x;
+                            float ballRight = b.x + 2.f * b.shape.getRadius();
+                            float pLeft = paddle2.xPos;
+                            float pRight = paddle2.xPos + paddle2.length;
+
+                            if (ballRight >= pLeft && ballLeft <= pRight) {
+                                // Odbicie w dół
+                                b.y_dir = 1.f;
+                                // Piłka tuż pod paletką
+                                b.y = paddle2BottomY + 0.1f;
+
+                                // Lekkie przyspieszenie po odbiciu , np. +50
+                                b.v += 50.f;
+                                // Zmień kolor - informacja wizualna
+                                b.shape.setFillColor(sf::Color::Green);
+
+                                // Punkt dla gracza 2 (lub AI)
+                                player[1].score++;
+                            }
+                            else {
+                                // Nie trafiła w paletkę -> piłka wylatuje
+                                b.active = false;
+                                balls_amount_after--;
+                            }
+                        }
+                    }
+                }
+                else {
+                    // subMode == 1 -> single 1P -> brak górnej paletki,
+                    // więc odbijamy się od GÓRNEJ BANDY (y=25), jeśli piłka tam doleci
+                    if (b.y < 25.f) {
+                        b.y = 25.f;
+                        b.y_dir *= -1.f;
+                    }
+                }
+
+                // 3) DOLNA PALETKA (we wszystkich trybach)
+                //    - sprawdzamy tylko, gdy piłka leci w dół (b.y_dir > 0)
+                if (b.y_dir > 0.f) {
+                    float ballBottom = b.y + 2.f * b.shape.getRadius();
+                    float paddle1TopY = (float)GAME_HEIGHT - 25.f - b_paletka; // 800 - 25 -10 = 765
+
+                    if (ballBottom >= paddle1TopY) {
+                        float ballLeft = b.x;
+                        float ballRight = b.x + 2.f * b.shape.getRadius();
+                        float padLeft = paddle1.xPos;
+                        float padRight = paddle1.xPos + paddle1.length;
+
+                        if (ballRight >= padLeft && ballLeft <= padRight) {
+                            // Odbicie w górę
+                            b.y_dir = -1.f;
+                            // Piłka tuż nad paletką
+                            b.y = paddle1TopY - 2.f * b.shape.getRadius() - 0.1f;
+
+                            // Przyspieszenie i kolor
+                            b.v += 50.f;
+                            b.shape.setFillColor(sf::Color::Red);
+
+                            // Punkt dla gracza 1
+                            player[0].score++;
+                        }
+                        else {
+                            // Nie trafiła w paletkę -> piłka wylatuje
+                            b.active = false;
+                            balls_amount_after--;
+                        }
+                    }
+                }
+                // Ruch piłki wg kąta
+                float rad = (b.angle * 3.14159f) / 180.f;
+                float cosA = std::cos(rad);
+                float sinA = std::sin(rad);
+
+                float dist = b.v * zmiana;
+                float dx = dist * cosA;
+                float dy = dist * sinA;
+
+                b.x += dx * b.x_dir;
+                b.y += dy * b.y_dir;
+            }
+
+            // Jeśli nie ma już aktywnych piłek, koniec gry
+            if (balls_amount_after == 0) {
+                showGameOver(w, locF);
+                unsigned int sec = (unsigned int)clockTime.getElapsedTime().asSeconds();
+                std::cout << "Koniec gry. Czas: "
+                    << sec / 60 << " min, " << sec % 60 << " sek\n";
+                return;
+            }
+        }
+
+        // Rysowanie
+        w.clear(sf::Color::Black);
+
+        // 1) board (bandy)
+        board.draw(w);
+
+        // 2) paletki
+        w.draw(paddle1.shape);
+        if (subMode == 0 || subMode == 2) {
+            w.draw(paddle2.shape);
+        }
+
+        // 3) piłki
+        for (auto& b : balls) {
+            if (b.active) {
+                b.shape.setPosition(b.x, b.y);
+                w.draw(b.shape);
+            }
+        }
+
+        // 4) Panel boczny
+        {
+            sf::RectangleShape panelBG;
+            panelBG.setSize(sf::Vector2f((float)(WINDOW_WIDTH - GAME_WIDTH), (float)WINDOW_HEIGHT));
+            panelBG.setFillColor(sf::Color(50, 50, 50));
+            panelBG.setPosition((float)GAME_WIDTH, 0.f);
+            w.draw(panelBG);
+
+            // Nick gracza 1
+            sf::Text nick1(player[0].nick + " (G1)", locF, 20);
+            nick1.setFillColor(sf::Color::Yellow);
+            nick1.setPosition((float)GAME_WIDTH + 20.f, 50.f);
+            w.draw(nick1);
+
+            // Nick/punkty gracza 2
+            if (subMode == 0) {
+                sf::Text nick2("AI (G2)", locF, 20);
+                nick2.setFillColor(sf::Color::Cyan);
+                nick2.setPosition((float)GAME_WIDTH + 20.f, 80.f);
+                w.draw(nick2);
+            }
+            else if (subMode == 2) {
+                sf::Text nick2(player[1].nick + " (G2)", locF, 20);
+                nick2.setFillColor(sf::Color::Cyan);
+                nick2.setPosition((float)GAME_WIDTH + 20.f, 80.f);
+                w.draw(nick2);
+            }
+
+            // Liczba piłek pozostałych
+            sf::Text ballsTxt("PILKI: " + std::to_string(balls_amount_after)
+                + "/" + std::to_string(ballsCount), locF, 20);
+            ballsTxt.setFillColor(sf::Color::White);
+            ballsTxt.setPosition((float)GAME_WIDTH + 20.f, 130.f);
+            w.draw(ballsTxt);
+
+            // Score
+            sf::Text score1("Score G1: " + std::to_string(player[0].score), locF, 20);
+            score1.setFillColor(sf::Color::Yellow);
+            score1.setPosition((float)GAME_WIDTH + 20.f, 180.f);
+            w.draw(score1);
+
+            // Score G2 lub AI
+            if (subMode == 0) {
+                sf::Text score2("Score AI: " + std::to_string(player[1].score), locF, 20);
+                score2.setFillColor(sf::Color::Cyan);
+                score2.setPosition((float)GAME_WIDTH + 20.f, 210.f);
+                w.draw(score2);
+            }
+            else if (subMode == 2) {
+                sf::Text score2("Score G2: " + std::to_string(player[1].score), locF, 20);
+                score2.setFillColor(sf::Color::Cyan);
+                score2.setPosition((float)GAME_WIDTH + 20.f, 210.f);
+                w.draw(score2);
+            }
+        }
+
+        w.display();
+
+        // Ewentualnie kończymy po X sekundach
+        if (clockTime.getElapsedTime().asSeconds() > 120.f) {
+            showGameOver(w, locF);
+            running = false;
+        }
+    }
+}
+
+int main() {
+    srand((unsigned)time(NULL));
+
+    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT),
+        " Gra PING PONG ");
+    window.setFramerateLimit(60);
+
+    sf::Font font;
+    if (!font.loadFromFile("resources/arial.ttf")) {
+        std::cout << "Blad ladowania czcionki (arial.ttf)!" << std::endl;
+    }
+
+    sf::Texture texNormal, texSelected;
+    if (!texNormal.loadFromFile("resources/menu_unselected.png")) {
+        std::cout << "Blad ladowania menu_unselected.png!" << std::endl;
+    }
+    if (!texSelected.loadFromFile("resources/menu_selected.png")) {
+        std::cout << "Blad ladowania menu_selected.png!" << std::endl;
+    }
+
+    // Przyciski w menu
+    Button btnSingle, btnMulti, btnHelp, btnExit;
+
+    // SINGLE
+    btnSingle.sprite.setTexture(texNormal);
+    btnSingle.text.setFont(font);
+    btnSingle.text.setString("SINGLEPLAYER");
+    btnSingle.text.setCharacterSize(40);
+    btnSingle.text.setFillColor(sf::Color::Red);
+    btnSingle.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+        (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 0 * 80.f);
+    btnSingle.text.setPosition(btnSingle.sprite.getPosition().x + 20.f,
+        btnSingle.sprite.getPosition().y + 10.f);
+    setInnerRect(btnSingle, 0.f);
+
+    // MULTI
+    btnMulti.sprite.setTexture(texNormal);
+    btnMulti.text.setFont(font);
+    btnMulti.text.setString("MULTIPLAYER");
+    btnMulti.text.setCharacterSize(40);
+    btnMulti.text.setFillColor(sf::Color::Red);
+    btnMulti.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+        (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 1 * 80.f);
+    btnMulti.text.setPosition(btnMulti.sprite.getPosition().x + 20.f,
+        btnMulti.sprite.getPosition().y + 10.f);
+    setInnerRect(btnMulti, 0.f);
+
+    // HELP
+    btnHelp.sprite.setTexture(texNormal);
+    btnHelp.text.setFont(font);
+    btnHelp.text.setString("HELP");
+    btnHelp.text.setCharacterSize(40);
+    btnHelp.text.setFillColor(sf::Color::Red);
+    btnHelp.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+        (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 2 * 80.f);
+    btnHelp.text.setPosition(btnHelp.sprite.getPosition().x + 20.f,
+        btnHelp.sprite.getPosition().y + 10.f);
+    setInnerRect(btnHelp, 0.f);
+
+    // EXIT
+    btnExit.sprite.setTexture(texNormal);
+    btnExit.text.setFont(font);
+    btnExit.text.setString("EXIT");
+    btnExit.text.setCharacterSize(40);
+    btnExit.text.setFillColor(sf::Color::Red);
+    btnExit.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+        (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 3 * 80.f);
+    btnExit.text.setPosition(btnExit.sprite.getPosition().x + 20.f,
+        btnExit.sprite.getPosition().y + 10.f);
+    setInnerRect(btnExit, 0.f);
+
+    bool runningMenu = true;
+    Player gracze[2];
+
+    // Główna pętla menu
+    while (window.isOpen() && runningMenu) {
+        window.clear(sf::Color(181, 230, 29));
+        // Rysowanie przycisków
+        btnSingle.draw(window);
+        btnMulti.draw(window);
+        btnHelp.draw(window);
+        btnExit.draw(window);
+        window.display();
+
+        sf::Event e;
+        while (window.pollEvent(e)) {
+            if (e.type == sf::Event::Closed) {
+                window.close();
+            }
+            if (e.type == sf::Event::MouseMoved) {
+                float mx = (float)e.mouseMove.x;
+                float my = (float)e.mouseMove.y;
+                // Podświetlanie przycisków
+                if (btnSingle.contains(mx, my)) {
+                    btnSingle.sprite.setTexture(texSelected);
+                }
+                else {
+                    btnSingle.sprite.setTexture(texNormal);
+                }
+                if (btnMulti.contains(mx, my)) {
+                    btnMulti.sprite.setTexture(texSelected);
+                }
+                else {
+                    btnMulti.sprite.setTexture(texNormal);
+                }
+                if (btnHelp.contains(mx, my)) {
+                    btnHelp.sprite.setTexture(texSelected);
+                }
+                else {
+                    btnHelp.sprite.setTexture(texNormal);
+                }
+                if (btnExit.contains(mx, my)) {
+                    btnExit.sprite.setTexture(texSelected);
+                }
+                else {
+                    btnExit.sprite.setTexture(texNormal);
+                }
+            }
+            if (e.type == sf::Event::MouseButtonPressed &&
+                e.mouseButton.button == sf::Mouse::Left)
+            {
+                float mx = (float)e.mouseButton.x;
+                float my = (float)e.mouseButton.y;
+
+                // SINGLE
+                if (btnSingle.contains(mx, my)) {
+                    int subM = chooseSubModeSingle(window, font, texNormal, texSelected);
+                    if (subM == -2) continue;
+                    if (subM == -1) { runningMenu = false; break; }
+
+                    // Nick gracza 1
+                    enterNickSFML(window, font, gracze[0].nick, 0);
+                    if (subM == 0) gracze[1].nick = "(AI)";
+                    else gracze[1].nick = "(N/A)";
+
+                    int diff = chooseDifficulty(window, font, texNormal, texSelected);
+                    if (diff == -2) continue;
+                    if (diff == 0) { runningMenu = false; break; }
+
+                    int bc = chooseBallsAmount(window, font, texNormal, texSelected);
+                    if (bc == -2) continue;
+                    if (bc == 0) { runningMenu = false; break; }
+
+                    runGame(window, subM, diff, bc, gracze);
+                }
+
+                // MULTI
+                if (btnMulti.contains(mx, my)) {
+                    int subM = chooseSubModeMulti(window, font, texNormal, texSelected);
+                    if (subM == -2) continue;
+                    if (subM == -1) { runningMenu = false; break; }
+
+                    // Nicki graczy
+                    enterNickSFML(window, font, gracze[0].nick, 0);
+                    enterNickSFML(window, font, gracze[1].nick, 1);
+
+                    int diff = chooseDifficulty(window, font, texNormal, texSelected);
+                    if (diff == -2) continue;
+                    if (diff == 0) { runningMenu = false; break; }
+
+                    int bc = chooseBallsAmount(window, font, texNormal, texSelected);
+                    if (bc == -2) continue;
+                    if (bc == 0) { runningMenu = false; break; }
+
+                    // subM=2 => 2 gracze
+                    runGame(window, 2, diff, bc, gracze);
+                }
+
+                // HELP
+                if (btnHelp.contains(mx, my)) {
+                    showHelp(window, font);
+                }
+
+                // EXIT
+                if (btnExit.contains(mx, my)) {
+                    window.close();
+                }
+            }
+        }
+    }
+    return 0;
+}
