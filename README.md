@@ -1,4 +1,4 @@
-				                                          Gra w stylu PONG
+				                                Gra w stylu PONG
 
 Po uruchomieniu gry uruchomiona zostaje uruchomiona konsola i zaraz z nią ekran wygenerowany za pomocą załączonej biblioteki SFML. Pierwsze okno, pokazuje MENU, w którym znajdują się tryby i opcje. Zawiera opcję : SINGLEPLAYER, MULTIPLAYER, HELP i EXIT.  W każdym momencie wciśnięcie BACKSPACE podczas wybierania opcji w MENU, powoduje powrót do poprzedniego okna lub usunięcie wpisywania z klawiatury. Wciśnięcie ENTER zatwierdza okno i przejście do następnego. Analogicznie działają przyciski “powrot” i “zatwierdz”. Opcja dowolna kliknięcie myszką na przycisk lub wciśnięcie klawisza z klawiatury.
 Gdy użytkownik wybierze opcję (menu_selected) SINGLEPLAYER, przechodzi do podmenu (menu_unselected) , tzn. ma do wyboru opcję - 1 player lub training. Jeśli wybierze opcję 1 player, to jest jedna paletka do gry, lecz gdy zostanie wybrana opcja training with AI to użytkownik gra z komputerem (śledzenie piłki przez górną paletkę). 
