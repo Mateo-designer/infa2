@@ -7,7 +7,7 @@
 #include <ctime>                         // Funkcje związane z czasem (time, srand)
 #include <cmath>                         // Funkcje matematyczne (sin, cos, itd.)
 #include <cstdlib>                       // Funkcje ogólne C (rand, srand)
-#include <vector>                        
+#include <vector>                        //vector
 
 using namespace std;                    
 
@@ -57,7 +57,46 @@ public:
         w.draw(bottom_border);
     }
 };
+// Klasa płomienia
+class plomien {
+public:
+    sf::ConvexShape ksztalt_plomienia;
 
+    plomien(float x, float y) {
+        ksztalt_plomienia.setPointCount(12); // Nieregularny kształt z 12 punktów
+        ksztalt_plomienia.setPoint(0, sf::Vector2f(30, 60));
+        ksztalt_plomienia.setPoint(1, sf::Vector2f(20, 55));
+        ksztalt_plomienia.setPoint(2, sf::Vector2f(10, 40));
+        ksztalt_plomienia.setPoint(3, sf::Vector2f(10, 30));
+        ksztalt_plomienia.setPoint(4, sf::Vector2f(20, 40));
+        ksztalt_plomienia.setPoint(5, sf::Vector2f(25, 20));
+        ksztalt_plomienia.setPoint(6, sf::Vector2f(30, 10));
+        ksztalt_plomienia.setPoint(7, sf::Vector2f(35, 20));
+        ksztalt_plomienia.setPoint(8, sf::Vector2f(40, 40));
+        ksztalt_plomienia.setPoint(9, sf::Vector2f(50, 30));
+        ksztalt_plomienia.setPoint(10, sf::Vector2f(50, 40));
+        ksztalt_plomienia.setPoint(11, sf::Vector2f(40, 55));
+
+        ksztalt_plomienia.setFillColor(sf::Color::Yellow); // Żółty środek
+        ksztalt_plomienia.setOutlineThickness(2);
+        ksztalt_plomienia.setOutlineColor(sf::Color::Red); // Czerwony kontur
+        ksztalt_plomienia.setScale(1.5f, 1.5f); // Skalowanie, aby było widoczne
+        ksztalt_plomienia.setPosition(x, y);
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(ksztalt_plomienia);
+    }
+
+    static vector<plomien> utworzplomienie() {
+        vector<plomien> wplomien;
+        wplomien.emplace_back(275, 400); 
+        wplomien.emplace_back(375, 400);
+        wplomien.emplace_back(475, 400);
+        wplomien.emplace_back(575, 400);
+        return wplomien;
+    }
+};
 // struktura Player
 struct Player {
     string nick;
@@ -86,8 +125,7 @@ void setInnerRect(Button& btn, float thickness) {
     float offset = 3.f;
 
     btn.innerRect.setPosition(b.left + offset, b.top + offset);
-    btn.innerRect.setSize(sf::Vector2f(b.width - 2.f * offset,
-        b.height - 2.f * offset));
+    btn.innerRect.setSize(sf::Vector2f(b.width - 2.f * offset,b.height - 2.f * offset));
     btn.innerRect.setFillColor(sf::Color::Transparent);
 
     if (thickness > 0.f) {
@@ -102,9 +140,7 @@ void setInnerRect(Button& btn, float thickness) {
 // Klasa PongGame - logika gry
 class PongGame {
 public:
-    void runGame(sf::RenderWindow& w, int subMode,
-        int difficulty, int ballsCount,
-        Player player[2]);
+    void runGame(sf::RenderWindow& w, int subMode,int difficulty, int ballsCount, Player player[2]);
     void showHelp(sf::RenderWindow& w, sf::Font& f);
 
 private:
@@ -141,6 +177,9 @@ void PongGame::showGameOver(sf::RenderWindow& w, sf::Font& f) {
     end.setFillColor(sf::Color::Red);
     end.setPosition(250.f, 200.f);
 
+    // Tworzymy płomienie
+    auto aplomien = plomien::utworzplomienie();             //oznacza, że to co zwróci funkcja, do zmiennej o dopasowanym typie danych w tym wypadku wektora
+
     sf::Text instruction("Aby zamknac gre, wcisnij ENTER", f, 50);
     instruction.setFillColor(sf::Color::Red);
     instruction.setPosition(100.f, 300.f);
@@ -155,8 +194,7 @@ void PongGame::showGameOver(sf::RenderWindow& w, sf::Font& f) {
                 w.close();
                 return;
             }
-            if (e.type == sf::Event::KeyPressed &&
-                e.key.code == sf::Keyboard::Enter) {
+            if (e.type == sf::Event::KeyPressed && e.key.code == sf::Keyboard::Enter) {
                 w.close();
                 return;
             }
@@ -166,7 +204,10 @@ void PongGame::showGameOver(sf::RenderWindow& w, sf::Font& f) {
             clk.restart();
         }
         w.clear(sf::Color::Black);
-        if (visible) w.draw(end);
+        for (auto& aplomien : aplomien) {                   //Załączenie orginalnych utworzonych płomieni z wektora
+            aplomien.draw(w);
+        }
+        if (visible) w.draw(end);                          //Warunek rysowania funkcji end z częstotliwością 1 sek
         w.draw(instruction);
         w.display();
     }
@@ -250,9 +291,7 @@ void PongGame::showHelp(sf::RenderWindow& w, sf::Font& f) {
 }
 
 // Właściwa logika gry
-void PongGame::runGame(sf::RenderWindow& w, int subMode,
-    int difficulty, int ballsCount,
-    Player player[2])
+void PongGame::runGame(sf::RenderWindow& w, int subMode,int difficulty, int ballsCount,Player player[2])
 {
     // Ładujemy czcionkę lokalnie
     sf::Font locF;
@@ -270,9 +309,9 @@ void PongGame::runGame(sf::RenderWindow& w, int subMode,
     // Ustalamy prędkość bazową w zależności od difficulty
     float baseSpeed = 700.f; 
     switch (difficulty) {
-    case 1: baseSpeed = 700.f;  break;
-    case 2: baseSpeed = 900.f; break;
-    case 3: baseSpeed = 1100.f; break;
+    case 1: baseSpeed = 700.f;  break;        //łatwy
+    case 2: baseSpeed = 900.f; break;         //Średni
+	case 3: baseSpeed = 1100.f; break;  	  //Trudny      
     }
 
     float zmiana = 0.005f; // do timera
@@ -448,7 +487,7 @@ void PongGame::runGame(sf::RenderWindow& w, int subMode,
                     b.x = 25.f;
                     b.x_dir *= -1.f;
                     b.shape.setFillColor(sf::Color(rand() % 256, rand() % 256, rand() % 256));
-                    b.v += 50.f; //przyspieszenie piłki odbitej od lewej bandy
+                    b.v += 50.f; //przyspieszenie piłki odbitej lewej bandy
                 }
                 else if (b.x > GAME_WIDTH - 25.f - 2.f * b.shape.getRadius()) {
                     b.x = GAME_WIDTH - 25.f - 2.f * b.shape.getRadius();
@@ -655,12 +694,13 @@ private:
     void initButtons();
     void handleEvents();
     void drawMenu();
+
     // Podmenu
     int  chooseSubModeSingle();
     int  chooseSubModeMulti();
     int  chooseDifficulty();
     int  chooseBallsAmount();
-	// Zwraca: -2 = cofnięcie (Powrót), inaczej 0 brak nicku, 1 - zatwierdzenie dalej
+    // Zwraca: -2 = cofnięcie (Powrót), inaczej 0 brak nicku, -1 - zatwierdzenie dalej
     int  enterNickSFML(string& nick, int pIndex); 
 };
 
@@ -683,9 +723,9 @@ void MenuSystem::initButtons() {
     btnMulti.text.setString("MULTIPLAYER");
     btnMulti.text.setCharacterSize(40);
     btnMulti.text.setFillColor(sf::Color::Red);
-    btnMulti.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+    btnMulti.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f, 
         (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 1 * 80.f);
-    btnMulti.text.setPosition(btnMulti.sprite.getPosition().x + 20.f,
+    btnMulti.text.setPosition(btnMulti.sprite.getPosition().x + 20.f, 
         btnMulti.sprite.getPosition().y + 10.f);
     setInnerRect(btnMulti, 0.f);
 
@@ -695,9 +735,9 @@ void MenuSystem::initButtons() {
     btnHelp.text.setString("HELP");
     btnHelp.text.setCharacterSize(40);
     btnHelp.text.setFillColor(sf::Color::Red);
-    btnHelp.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+    btnHelp.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f, 
         (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 2 * 80.f);
-    btnHelp.text.setPosition(btnHelp.sprite.getPosition().x + 20.f,
+    btnHelp.text.setPosition(btnHelp.sprite.getPosition().x + 20.f, 
         btnHelp.sprite.getPosition().y + 10.f);
     setInnerRect(btnHelp, 0.f);
 
@@ -707,9 +747,9 @@ void MenuSystem::initButtons() {
     btnExit.text.setString("EXIT");
     btnExit.text.setCharacterSize(40);
     btnExit.text.setFillColor(sf::Color::Red);
-    btnExit.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f,
+    btnExit.sprite.setPosition((float)(WINDOW_WIDTH - 500) / 2.f, 
         (float)(WINDOW_HEIGHT - 80 * 4) / 2.f + 3 * 80.f);
-    btnExit.text.setPosition(btnExit.sprite.getPosition().x + 20.f,
+    btnExit.text.setPosition(btnExit.sprite.getPosition().x + 20.f, 
         btnExit.sprite.getPosition().y + 10.f);
     setInnerRect(btnExit, 0.f);
 }
@@ -904,7 +944,7 @@ int MenuSystem::chooseSubModeSingle() {
     btnTrain.text.setCharacterSize(30);
     btnTrain.text.setFillColor(sf::Color::Black);
     btnTrain.sprite.setPosition(50.f, 150.f);
-    btnTrain.text.setPosition(btnTrain.sprite.getPosition().x + 20.f,
+    btnTrain.text.setPosition(btnTrain.sprite.getPosition().x + 20.f, 
         btnTrain.sprite.getPosition().y + 10.f);
     setInnerRect(btnTrain, 0.f);
 
@@ -1224,7 +1264,7 @@ int MenuSystem::chooseDifficulty() {
                 ev.mouseButton.button == sf::Mouse::Left) {
                 float mx = (float)ev.mouseButton.x;
                 float my = (float)ev.mouseButton.y;
-                if (b1.contains(mx, my)) chosen = 1;
+                if (b1.contains(mx, my)) chosen = 1;    //Wybory trudności z switch : case
                 if (b2.contains(mx, my)) chosen = 2;
                 if (b3.contains(mx, my)) chosen = 3;
                 if (bOK.contains(mx, my)) {
@@ -1307,7 +1347,9 @@ int MenuSystem::chooseBallsAmount() {
                 ev.key.code == sf::Keyboard::Enter) {
                 if (!userStr.empty()) {
                     try {
-                        val = stoi(userStr);
+                        //By bezpiecznie konwertować wpisany tekst na liczbę, w przypadku niepoprawnych danych brak błędu i ponowne wpisanie.
+
+                        val = stoi(userStr);            //string to int - konwertuje łańcuch znaków do zmiennej całkowitej
                         if (val >= 1 && val <= 500) {
                             return val;
                         }
@@ -1315,12 +1357,13 @@ int MenuSystem::chooseBallsAmount() {
                             userStr.clear();
                         }
                     }
-                    catch (...) {
+                    catch (...) {  //Funkcja powiązana z try, która ma za zadanie w razie potrzeby przy wpisywaniu ciągu liter lub zbyt dużej cyfry, ma to wykasować i móc pozwolić na wpisywanie ponowne
                         userStr.clear();
                     }
                 }
             }
-            if (ev.type == sf::Event::MouseMoved) {
+            if (ev.type == sf::Event::MouseMoved) //efekt najechani kursorem 
+            {
                 float mx = (float)ev.mouseMove.x;
                 float my = (float)ev.mouseMove.y;
                 if (bOK.contains(mx, my))
@@ -1342,7 +1385,8 @@ int MenuSystem::chooseBallsAmount() {
                 }
             }
             if (ev.type == sf::Event::MouseButtonPressed &&
-                ev.mouseButton.button == sf::Mouse::Left) {
+                ev.mouseButton.button == sf::Mouse::Left) //efekt wciśnięcia myszką
+            {
                 float mx = (float)ev.mouseButton.x;
                 float my = (float)ev.mouseButton.y;
                 if (bOK.contains(mx, my)) {
@@ -1399,7 +1443,7 @@ int MenuSystem::enterNickSFML(string& nick, int pIndex) {
     btnOK.text.setFillColor(sf::Color::Black);
     btnOK.sprite.setPosition( 50.f,300.f);
     btnOK.text.setPosition(btnOK.sprite.getPosition().x + 20.f,
-        btnOK.sprite.getPosition().y + 10.f);
+    btnOK.sprite.getPosition().y + 10.f);
     setInnerRect(btnOK, 0.f);
 
     btnPowrot.sprite.setTexture(tN);
@@ -1408,10 +1452,9 @@ int MenuSystem::enterNickSFML(string& nick, int pIndex) {
     btnPowrot.text.setString("Powrot");
     btnPowrot.text.setCharacterSize(25);
     btnPowrot.text.setFillColor(sf::Color::Black);
-    btnPowrot.sprite.setPosition(10.f,
-        (float)w.getSize().y - 70.f);
+    btnPowrot.sprite.setPosition(10.f,(float)w.getSize().y - 70.f);
     btnPowrot.text.setPosition(btnPowrot.sprite.getPosition().x + 10.f,
-        btnPowrot.sprite.getPosition().y + 5.f);
+    btnPowrot.sprite.getPosition().y + 5.f);
     setInnerRect(btnPowrot, 0.f);
 
     nick.clear();
